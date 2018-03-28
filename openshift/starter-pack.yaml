@@ -1,54 +1,73 @@
 apiVersion: v1
 kind: Template
 metadata:
-  name: osb-starter-pack
+  name: database-broker
 objects:
 
 - apiVersion: servicecatalog.k8s.io/v1beta1
   kind: ClusterServiceBroker
   metadata:
-    name: osb-starter-pack
+    name: database-broker
   spec:
-    url: http://osb-starter-pack.osb-starter-pack.svc.cluster.local
+    url: http://database-broker.database-broker.svc.cluster.local
+    relistBehavior: Duration
+    relistDuration: 1m0s
 
 - kind: ServiceAccount
   apiVersion: v1
   metadata:
-    name: osb-starter-pack
+    name: database-broker
+    namespace: database-broker
 
 - kind: Service
   apiVersion: v1
   metadata:
-    name: osb-starter-pack
+    name: database-broker
     labels:
-      app: osb-starter-pack
+      app: database-broker
   spec:
     selector:
-      app: osb-starter-pack
+      app: database-broker
     ports:
     - protocol: TCP
       port: 80
       targetPort: 8080
+
+- kind: ClusterRoleBinding
+  apiVersion: rbac.authorization.k8s.io/v1beta1
+  metadata:
+    name: database-broker
+  groupNames:
+  subjects:
+  - kind: ServiceAccount
+    name: database-broker
+    namespace: database-broker
+  roleRef:
+    name: admin
+    kind: ClusterRole
+    apiGroup: rbac.authorization.k8s.io
+
 - kind: Deployment
   apiVersion: extensions/v1beta1
   metadata:
-    name: osb-starter-pack
+    name: database-broker
     labels:
-      app: osb-starter-pack
+      app: database-broker
   spec:
     replicas: 1
     selector:
       matchLabels:
-        app: osb-starter-pack
+        app: database-broker
     template:
       metadata:
         labels:
-          app: osb-starter-pack
+          app: database-broker
       spec:
+        serviceAccountName: database-broker
         containers:
-        - name: service-osb-starter-pack
+        - name: service-database-broker
           image: ${IMAGE}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command:
           - /opt/servicebroker/servicebroker
           args:
@@ -78,4 +97,4 @@ parameters:
   displayName: Image name
   name: IMAGE
   required: true
-  value: quay.io/osb-starter-pack/servicebroker:latest
+  value: teiid/database-broker:latest

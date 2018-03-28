@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/pmorie/osb-broker-lib/pkg/broker"
-
 	osb "github.com/pmorie/go-open-service-broker-client/v2"
-	"gopkg.in/yaml.v2"
+	"github.com/golang/glog"
+	"errors"
 )
 
 // NewBusinessLogic is a hook that is called with the Options the program is run
@@ -19,96 +19,85 @@ func NewBusinessLogic(o Options) (*BusinessLogic, error) {
 	// BusinessLogic here.
 	return &BusinessLogic{
 		async:     o.Async,
-		instances: make(map[string]*exampleInstance, 10),
+		instances: make(map[string]*dbServiceInstance, 10),
 	}, nil
 }
 
 // BusinessLogic provides an implementation of the broker.BusinessLogic
 // interface.
 type BusinessLogic struct {
-	// Indiciates if the broker should handle the requests asynchronously.
+	// Indicates if the broker should handle the requests asynchronously.
 	async bool
 	// Synchronize go routines.
 	sync.RWMutex
 	// Add fields here! These fields are provided purely as an example
-	instances map[string]*exampleInstance
+	instances map[string]*dbServiceInstance
 }
 
 var _ broker.Interface = &BusinessLogic{}
 
 func (b *BusinessLogic) GetCatalog(c *broker.RequestContext) (*osb.CatalogResponse, error) {
-	// Your catalog business logic goes here
 	response := &osb.CatalogResponse{}
 
-	data := `
----
-services:
-- name: example-starter-pack-service
-  id: 4f6e6cf6-ffdd-425f-a2c7-3c9258ad246a
-  description: The example service from the osb starter pack!
-  bindable: true
-  plan_updateable: true
-  metadata:
-    displayName: "Example starter-pack service"
-    imageUrl: https://avatars2.githubusercontent.com/u/19862012?s=200&v=4
-  plans:
-  - name: default
-    id: 86064792-7ea2-467b-af93-ac9694d96d5b
-    description: The default plan for the starter pack example service
-    free: true
-    schemas:
-      service_instance:
-        create:
-          "$schema": "http://json-schema.org/draft-04/schema"
-          "type": "object"
-          "title": "Parameters"
-          "properties":
-          - "name":
-              "title": "Some Name"
-              "type": "string"
-              "maxLength": 63
-              "default": "My Name"
-          - "color":
-              "title": "Color"
-              "type": "string"
-              "default": "Clear"
-              "enum":
-              - "Clear"
-              - "Beige"
-              - "Grey"
-`
-
-	err := yaml.Unmarshal([]byte(data), &response)
+	services, err := catalog()
 	if err != nil {
 		return nil, err
 	}
+
+	response.Services = services
 
 	return response, nil
 }
 
 func (b *BusinessLogic) Provision(request *osb.ProvisionRequest, c *broker.RequestContext) (*osb.ProvisionResponse, error) {
-	// Your provision business logic goes here
 
-	// example implementation:
 	b.Lock()
 	defer b.Unlock()
 
-	response := osb.ProvisionResponse{}
-
-	exampleInstance := &exampleInstance{ID: request.InstanceID, Params: request.Parameters}
-	b.instances[request.InstanceID] = exampleInstance
-
-	if request.AcceptsIncomplete {
-		response.Async = b.async
+	// only accept async
+	if !request.AcceptsIncomplete {
+		return nil, osb.HTTPStatusCodeError{
+			StatusCode: http.StatusUnprocessableEntity,
+		}
 	}
 
+	// if provision request on existing instance comes in then return 202
+	if b.instances[request.InstanceID] != nil {
+		glog.Infof("already provisioned ", request.InstanceID)
+		return nil, osb.HTTPStatusCodeError{
+			StatusCode: http.StatusAccepted,
+		}
+	}
+
+	glog.Infof("received provision request for ", request.InstanceID)
+
+	response := osb.ProvisionResponse{}
+	operation := osb.OperationKey("provision")
+	serviceInstance := dbServiceInstance{ID: request.InstanceID, Parameters: request.Parameters, PlanID: request.PlanID,
+		State: osb.StateInProgress, OperationKey:operation}
+	b.instances[request.InstanceID] = &serviceInstance
+
+	response.Async = true
+
+	// create external service in async mode
+	go createService(&serviceInstance)
+
+	url := "http://goolge.com"
+	response.DashboardURL = &url
+	// bug in OpenShift it is not returning this key back with lastoperation.
+	response.OperationKey = &operation
 	return &response, nil
 }
 
 func (b *BusinessLogic) Deprovision(request *osb.DeprovisionRequest, c *broker.RequestContext) (*osb.DeprovisionResponse, error) {
-	// Your deprovision business logic goes here
+	instance, ok := b.instances[request.InstanceID]
+	if !ok {
+		return nil, errors.New("Service not found to deprovision"+request.InstanceID)
+	}
 
-	// example implementation:
+	// removing the service
+	removeExternalService(*instance)
+
 	b.Lock()
 	defer b.Unlock()
 
@@ -124,9 +113,39 @@ func (b *BusinessLogic) Deprovision(request *osb.DeprovisionRequest, c *broker.R
 }
 
 func (b *BusinessLogic) LastOperation(request *osb.LastOperationRequest, c *broker.RequestContext) (*osb.LastOperationResponse, error) {
-	// Your last-operation business logic goes here
+	serviceInstance := b.instances[request.InstanceID]
+	glog.Infof("last operation request on instance", request)
 
+	// TODO:Bug in OpenShift OperationKey is always passed as nil.
+	if request.OperationKey == nil {
+		request.OperationKey = &serviceInstance.OperationKey
+	}
+
+	if *request.OperationKey == osb.OperationKey("provision") {
+		glog.Infof("Service has been requested to provision", request.InstanceID)
+		response := osb.LastOperationResponse{}
+		response.State = serviceInstance.State
+		glog.Infof("LastOperation response", response)
+		return &response, nil
+	}
 	return nil, nil
+}
+
+func createService(serviceInstance *dbServiceInstance) {
+	glog.Infof("starting to create a service for instance", serviceInstance.ID)
+	serviceInstance.Lock()
+	defer serviceInstance.Unlock()
+
+	serviceInstance.State = osb.StateInProgress
+	ok, err := createExternalService(*serviceInstance)
+	if !ok {
+		serviceInstance.State = osb.StateFailed
+		glog.Infof("failed to create external service", err)
+	} else {
+		// modify the status of the instance
+		serviceInstance.State = osb.StateSucceeded
+		glog.Infof("done creating a service for instance", serviceInstance.ID)
+	}
 }
 
 func (b *BusinessLogic) Bind(request *osb.BindRequest, c *broker.RequestContext) (*osb.BindResponse, error) {
@@ -143,9 +162,14 @@ func (b *BusinessLogic) Bind(request *osb.BindRequest, c *broker.RequestContext)
 		}
 	}
 
+	creds := createBindingParameters(*instance, request.Parameters)
 	response := osb.BindResponse{
-		Credentials: instance.Params,
+		Credentials: creds,
 	}
+
+	// asynchronously create PodPreset
+	go createPodPreset(*instance, creds)
+
 	if request.AcceptsIncomplete {
 		response.Async = b.async
 	}
@@ -175,7 +199,11 @@ func (b *BusinessLogic) ValidateBrokerAPIVersion(version string) error {
 // example types
 
 // exampleInstance is intended as an example of a type that holds information about a service instance
-type exampleInstance struct {
-	ID     string
-	Params map[string]interface{}
+type dbServiceInstance struct {
+	ID           string
+	Parameters   map[string]interface{}
+	State        osb.LastOperationState
+	sync.RWMutex
+	PlanID       string
+	OperationKey osb.OperationKey
 }

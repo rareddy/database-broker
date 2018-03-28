@@ -1,0 +1,280 @@
+{
+  "services": [
+    {
+      "name": "database-broker",
+      "id": "5b333b4a-e37c-4391-9090-af59dfcaa1cc",
+      "description": "Provision a connection to Enterprise database like Oracle, MS-SQLServer, MySQL on your network.",
+      "tags": [
+        "no-sql",
+        "relational",
+        "database"
+      ],
+      "bindable": true,
+      "metadata": {
+        "displayName": "Database Broker",
+        "imageUrl": "https://avatars2.githubusercontent.com/u/19862012?s=200&v=4",
+        "provider": {
+          "name": "Database Broker"
+        }
+      },
+      "plan_updateable": false,
+      "plans": [
+        {
+          "name": "oracle",
+          "id": "14badd7e-ca17-4de1-be45-74eb82d5a733",
+          "description": "Make a connection to Oracle Database on Enterprise Network",
+          "free": true,
+          "metadata": {
+            "displayName": "Oracle"
+          },
+          "schemas": {
+            "service_instance": {
+              "create": {
+                "parameters": {
+                  "$schema": "http://json-schema.org/draft-04/schema#",
+                  "type": "object",
+                  "properties": {
+                    "source-name": {
+                      "title": "Service Identification Name ",
+                      "description": "Your own identifer name for this Service, Ex: production",
+                      "type": "string",
+                      "default": "devorcl",
+                      "pattern": "[a-z0-9_]",
+                      "required": "true"
+                    },
+                    "namespace": {
+                      "title": "Namespace",
+                      "description": "Namespace where the Service proxy is being created (same as project name)",
+                      "type": "string",
+                      "required": "true",
+                      "default": "myproject"
+                    },
+                    "host": {
+                      "title": "Database Host Name",
+                      "description": "Host Name of the database Server(must be reachable from cloud)",
+                      "type": "string",
+                      "required": "true"
+                    },
+                    "port": {
+                      "title": "Database Port Number",
+                      "description": "Port Number for the database server",
+                      "type": "integer",
+                      "default": 1521,
+                      "required": "true"
+                    },
+                    "database-name": {
+                      "title": "Database Name",
+                      "description": "Name of the Database connect to",
+                      "type": "string",
+                      "required": "true"
+                    }
+                  }
+                }
+              }
+            },
+            "service_binding": {
+              "create": {
+                "parameters": {
+                  "$schema": "http://json-schema.org/draft-04/schema#",
+                  "type": "object",
+                  "properties": {
+                    "username": {
+                      "title": "User Name",
+                      "description": "User Name to use to connect to Database",
+                      "type": "string",
+                      "required": "true"
+                    },
+                    "password": {
+                      "title": "Password",
+                      "description": "Password to use to connect to Database",
+                      "type": "string",
+                      "required": "true"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "sqlserver",
+          "id": "867a6ee8-a9bd-4a5c-8b16-2e42914aaa7d",
+          "description": "Make a connection to Microsoft SQLServer Database on Enterprise Network",
+          "free": true,
+          "metadata": {
+            "displayName": "Microsoft SQLServer"
+          },
+          "schemas": {
+            "service_instance": {
+              "create": {
+                "parameters": {
+                  "$schema": "http://json-schema.org/draft-04/schema#",
+                  "type": "object",
+                  "properties": {
+                    "source-name": {
+                      "title": "Service Identification Name ",
+                      "description": "Your own identifer name for this Service, Ex: production",
+                      "type": "string",
+                      "default": "devsqlserver",
+                      "pattern": "[a-z0-9_]",
+                      "required": "true"
+                    },
+                    "namespace": {
+                      "title": "Namespace",
+                      "description": "Namespace where the Service proxy is being created (same as project name)",
+                      "type": "string",
+                      "required": "true",
+                      "default": "myproject"
+                    },
+                    "host": {
+                      "title": "Database Host Name",
+                      "description": "Host Name of the database Server(must be reachable from cloud)",
+                      "type": "string",
+                      "required": "true"
+                    },
+                    "port": {
+                      "title": "Database Port Number",
+                      "description": "Port Number for the database server",
+                      "type": "integer",
+                      "default": 1433,
+                      "required": "true"
+                    },
+                    "database-name": {
+                      "title": "Database Name",
+                      "description": "Name of the Database connect to",
+                      "type": "string",
+                      "required": "true"
+                    }
+                  }
+                }
+              }
+            },
+            "service_binding": {
+              "create": {
+                "parameters": {
+                  "$schema": "http://json-schema.org/draft-04/schema#",
+                  "type": "object",
+                  "properties": {
+                    "username": {
+                      "title": "User Name",
+                      "description": "User Name to use to connect to Database",
+                      "type": "string",
+                      "required": "true"
+                    },
+                    "password": {
+                      "title": "Password",
+                      "description": "Password to use to connect to Database",
+                      "type": "string",
+                      "required": "true"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "mysql",
+          "id": "72ea9445-8525-4750-8af0-0aee6be201ca",
+          "description": "Make a connection to MySQL Database on Enterprise Network",
+          "free": true,
+          "metadata": {
+            "displayName": "MySQL"
+          },
+          "schemas": {
+            "service_instance": {
+              "create": {
+                "parameters": {
+                  "$schema": "http://json-schema.org/draft-04/schema#",
+                  "type": "object",
+                  "properties": {
+                    "source-name": {
+                      "title": "Service Identification Name ",
+                      "description": "Your own identifer name for this Service, Ex: production",
+                      "type": "string",
+                      "default": "devmysql",
+                      "pattern": "[a-z0-9_]",
+                      "required": "true"
+                    },
+                    "namespace": {
+                      "title": "Namespace",
+                      "description": "Namespace where the Service proxy is being created (same as project name)",
+                      "type": "string",
+                      "required": "true",
+                      "default": "myproject"
+                    },
+                    "host": {
+                      "title": "Database Host Name",
+                      "description": "Host Name of the database Server(must be reachable from cloud)",
+                      "type": "string",
+                      "required": "true"
+                    },
+                    "port": {
+                      "title": "Database Port Number",
+                      "description": "Port Number for the database server",
+                      "type": "integer",
+                      "default": 3306,
+                      "required": "true"
+                    },
+                    "database-name": {
+                      "title": "Database Name",
+                      "description": "Name of the Database connect to",
+                      "type": "string",
+                      "required": "true"
+                    },
+                    "init-script": {
+                      "title": "Database Init Script",
+                      "description": "URL to the Database initialization script. (DDL, DML)",
+                      "type": "string"
+                    },
+                    "ping-query": {
+                      "title": "Database Ping Query in SQL",
+                      "description": "SQL Query to Ping database to check if it is available",
+                      "type": "string",
+                      "default": "SELECT 1"
+                    }
+                  }
+                }
+              }
+            },
+            "service_binding": {
+              "create": {
+                "parameters": {
+                  "$schema": "http://json-schema.org/draft-04/schema#",
+                  "type": "object",
+                  "properties": {
+                    "username": {
+                      "title": "User Name",
+                      "description": "User Name to use to connect to Database",
+                      "type": "string",
+                      "required": "true"
+                    },
+                    "password": {
+                      "title": "Password",
+                      "description": "Password to use to connect to Database",
+                      "type": "string",
+                      "required": "true"
+                    },
+                    "application-type": {
+                      "title": "Application Type",
+                      "description": "Type of Application this Database is used with",
+                      "type": "string",
+                      "enum": [
+                        "spring-boot",
+                        "wildfly-swarm",
+                        "nodejs",
+                        "other"
+                      ],
+                      "required": "true",
+                      "default": "spring-boot"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

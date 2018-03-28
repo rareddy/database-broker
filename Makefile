@@ -3,19 +3,20 @@ ifdef USE_SUDO_FOR_DOCKER
 	SUDO_CMD = sudo
 endif
 
-IMAGE ?= quay.io/osb-starter-pack/servicebroker
-TAG ?= $(shell git describe --tags --always)
+IMAGE ?= docker.io/teiid/database-broker
+#TAG ?= $(shell git describe --tags --always)
+TAG ?= latest
 PULL ?= IfNotPresent
 
 build: ## Builds the starter pack
-	go build -i github.com/pmorie/osb-starter-pack/cmd/servicebroker
+	go build -i github.com/teiid/database-broker/cmd/servicebroker
 
 test: ## Runs the tests
 	go test -v $(shell go list ./... | grep -v /vendor/ | grep -v /test/)
 
 linux: ## Builds a Linux executable
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-	go build -o servicebroker-linux --ldflags="-s" github.com/pmorie/osb-starter-pack/cmd/servicebroker
+	go build -o servicebroker-linux --ldflags="-s" github.com/teiid/database-broker/cmd/servicebroker
 
 image: linux ## Builds a Linux based image
 	cp servicebroker-linux image/servicebroker
@@ -34,7 +35,7 @@ deploy-helm: image ## Deploys image with helm
 	--set image="$(IMAGE):$(TAG)",imagePullPolicy="$(PULL)"
 
 deploy-openshift: image ## Deploys image to openshift
-	oc new-project osb-starter-pack
+	oc new-project database-broker
 	oc process -f openshift/starter-pack.yaml -p IMAGE=$(IMAGE):$(TAG) | oc create -f -
 
 create-ns: ## Cleans up the namespaces
