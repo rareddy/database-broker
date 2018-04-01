@@ -11,11 +11,14 @@ func (ds SqlServer) defaultPort() int {
 	return 1433
 }
 
+func (ds SqlServer) name() string {
+	return "sqlserver"
+}
+
 // support configurable interface
 func (ds SqlServer) springboot() map[string]interface{} {
 	props := make(map[string]interface{})
 	props[sb(ds.SourceName, "driver-class-name")] = "net.sourceforge.jtds.jdbc.Driver"
-	props[sb(ds.SourceName, "jndi-name")] = "java:datasources/"+ds.SourceName
 	props[sb(ds.SourceName, "url")] = "jdbc:jtds:sqlserver://"+ds.SourceName+":1433/"+i2s(ds.Parameters["database-name"])
 	props[sb(ds.SourceName, "username")] = i2s(ds.Parameters["username"])
 	props[sb(ds.SourceName, "password")] = i2s(ds.Parameters["password"])

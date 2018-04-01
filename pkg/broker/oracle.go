@@ -11,6 +11,10 @@ func (ds Oracle) defaultPort() int {
 	return 1521
 }
 
+func (ds Oracle) name() string {
+	return "oracle"
+}
+
 // support configurable interface
 func (ds Oracle) springboot() map[string]interface{} {
 	props := make(map[string]interface{})

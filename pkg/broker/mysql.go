@@ -11,11 +11,14 @@ func (ds MySql) defaultPort() int {
 	return 3306
 }
 
+func (ds MySql) name() string {
+	return "mysql"
+}
+
 // support configurable interface
 func (ds MySql) springboot() map[string]interface{} {
 	props := make(map[string]interface{})
 	props[sb(ds.SourceName, "driver-class-name")] = "com.mysql.jdbc.Driver"
-	props[sb(ds.SourceName, "jndi-name")] = "java:datasources/"+ds.SourceName
 	props[sb(ds.SourceName, "url")] = "jdbc:mysql://"+ds.SourceName+":3306/"+i2s(ds.Parameters["database-name"])
 	props[sb(ds.SourceName, "username")] = i2s(ds.Parameters["username"])
 	props[sb(ds.SourceName, "password")] = i2s(ds.Parameters["password"])

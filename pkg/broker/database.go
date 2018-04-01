@@ -14,6 +14,7 @@ type datasource struct {
 
 type externaldatasource interface {
 	defaultPort() int
+	name() string
 }
 
 type configurable interface {
@@ -60,6 +61,8 @@ func newDataSource(serviceInstance dbServiceInstance, bindingParameters map[stri
 					return SqlServer{ds}
 				} else if services[i].Plans[j].Name == "oracle" {
 					return Oracle{ds}
+				} else if services[i].Plans[j].Name == "postgresql" {
+					return PostgreSQL{ds}
 				}
 			}
 		}

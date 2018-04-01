@@ -4,22 +4,38 @@ import (
 	"errors"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	"regexp"
 	"strconv"
 	"github.com/golang/glog"
+	"fmt"
 )
 
-func createExternalService(serviceInstance dbServiceInstance) (bool, error) {
+func serviceAction(serviceInstance dbServiceInstance, opKey osb.OperationKey,
+	task func (serviceInstance dbServiceInstance) error,
+	after func(osb.OperationKey, error)) {
+
+	glog.Infof("starting to create a service for instance", serviceInstance.ID)
+	serviceInstance.Lock()
+	defer serviceInstance.Unlock()
+
+	err := task(serviceInstance)
+	after(opKey, err)
+}
+
+func createExternalService(serviceInstance dbServiceInstance) error {
+
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		return false, err
+		return err
 	}
 	// creates the clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	db := newDataSource(serviceInstance, nil)
@@ -28,7 +44,7 @@ func createExternalService(serviceInstance dbServiceInstance) (bool, error) {
 	host := i2s(serviceInstance.Parameters["host"])
 	portInt64, err := strconv.ParseInt(i2s(serviceInstance.Parameters["port"]), 10, 32)
 	if err != nil {
-		return false, errors.New("invalid Port provided")
+		return errors.New("invalid Port provided")
 	}
 
 	port := int32(portInt64)
@@ -39,7 +55,7 @@ func createExternalService(serviceInstance dbServiceInstance) (bool, error) {
 
 	if isIP(host) {
 		// if the host matches to IPV4 address
-		servicePort := v1.ServicePort{Name: db.(datasource).Name, Port: int32(db.(externaldatasource).defaultPort()),
+		servicePort := v1.ServicePort{Name: db.(externaldatasource).name(), Port: int32(db.(externaldatasource).defaultPort()),
 			Protocol: "TCP", TargetPort: intstr.FromInt(db.(externaldatasource).defaultPort())}
 		service.Spec.Ports = []v1.ServicePort{servicePort}
 	} else if isHostName(host) {
@@ -47,25 +63,32 @@ func createExternalService(serviceInstance dbServiceInstance) (bool, error) {
 		service.Spec.Type = "ExternalName"
 		service.Spec.ExternalName = host
 	} else {
-		return false, errors.New("invalid Hostname provided")
+		return errors.New("invalid Hostname provided")
 	}
 
+	typeMetadata := metav1.TypeMeta{"Service", "v1"}
+	existing, err := clientset.CoreV1().Services(namespace).Get(serviceName, metav1.GetOptions{TypeMeta: typeMetadata})
+	if err == nil{
+		return errors.New(serviceName + "service already exists, can not provision "+ i2s(existing))
+	}
+
+	fmt.Println("no previous service found, creating new...")
 	created, err := clientset.CoreV1().Services(namespace).Create(&service)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	glog.Infof("created external service:", created)
 
 	if isIP(host) {
-		endpoint := buildEndpoint(serviceName, db.(datasource).Name, host, port)
+		endpoint := buildEndpoint(serviceName, db.(externaldatasource).name(), host, port)
 		createdEndpoint, err := clientset.CoreV1().Endpoints(namespace).Create(&endpoint)
 		if err != nil {
-			return false, err
+			return err
 		}
 		glog.Infof("created endpoint :", createdEndpoint)
 	}
-	return true, nil
+	return nil
 }
 
 func buildEndpoint(serviceName string, dbType string, dbHost string, dbPort int32) v1.Endpoints {

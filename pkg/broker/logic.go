@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/pmorie/osb-broker-lib/pkg/broker"
-	osb "github.com/pmorie/go-open-service-broker-client/v2"
+	"fmt"
 	"github.com/golang/glog"
-	"errors"
+	osb "github.com/pmorie/go-open-service-broker-client/v2"
+	"github.com/pmorie/osb-broker-lib/pkg/broker"
 )
 
 // NewBusinessLogic is a hook that is called with the Options the program is run
@@ -74,13 +74,21 @@ func (b *BusinessLogic) Provision(request *osb.ProvisionRequest, c *broker.Reque
 	response := osb.ProvisionResponse{}
 	operation := osb.OperationKey("provision")
 	serviceInstance := dbServiceInstance{ID: request.InstanceID, Parameters: request.Parameters, PlanID: request.PlanID,
-		State: osb.StateInProgress, OperationKey:operation}
+		OperationKey: operation, inProgressOperations:map[osb.OperationKey]osb.LastOperationState{}}
+	serviceInstance.inProgressOperations[operation] = osb.StateInProgress
 	b.instances[request.InstanceID] = &serviceInstance
 
 	response.Async = true
 
 	// create external service in async mode
-	go createService(&serviceInstance)
+	after := func(opKey osb.OperationKey, err error) {
+		if err != nil {
+			fmt.Println("failed to Provision service with Plan" + request.PlanID)
+			serviceInstance.inProgressOperations[opKey] = osb.StateFailed
+		}
+		serviceInstance.inProgressOperations[opKey] = osb.StateSucceeded
+	}
+	go serviceAction(serviceInstance, operation, createExternalService, after)
 
 	url := "http://goolge.com"
 	response.DashboardURL = &url
@@ -90,96 +98,125 @@ func (b *BusinessLogic) Provision(request *osb.ProvisionRequest, c *broker.Reque
 }
 
 func (b *BusinessLogic) Deprovision(request *osb.DeprovisionRequest, c *broker.RequestContext) (*osb.DeprovisionResponse, error) {
-	instance, ok := b.instances[request.InstanceID]
-	if !ok {
-		return nil, errors.New("Service not found to deprovision"+request.InstanceID)
-	}
 
-	// removing the service
-	removeExternalService(*instance)
+	// only accept async
+	if !request.AcceptsIncomplete {
+		return nil, osb.HTTPStatusCodeError{
+			StatusCode: http.StatusUnprocessableEntity,
+		}
+	}
 
 	b.Lock()
 	defer b.Unlock()
 
 	response := osb.DeprovisionResponse{}
+	operation := osb.OperationKey("provision")
 
-	delete(b.instances, request.InstanceID)
-
-	if request.AcceptsIncomplete {
-		response.Async = b.async
+	serviceInstance, ok := b.instances[request.InstanceID]
+	if !ok {
+		return &response, nil
 	}
+
+	serviceInstance.inProgressOperations[operation] = osb.StateInProgress
+
+	// removing the service
+	after := func(opKey osb.OperationKey, err error) {
+		if err != nil {
+			fmt.Println("failed to Provision service with Plan" + request.PlanID)
+			serviceInstance.inProgressOperations[opKey] = osb.StateFailed
+		}
+		serviceInstance.inProgressOperations[opKey] = osb.StateSucceeded
+		delete(b.instances, request.InstanceID)
+	}
+	go serviceAction(*serviceInstance, operation, removeExternalService, after)
+
+	response.Async = request.AcceptsIncomplete
 
 	return &response, nil
 }
 
 func (b *BusinessLogic) LastOperation(request *osb.LastOperationRequest, c *broker.RequestContext) (*osb.LastOperationResponse, error) {
 	serviceInstance := b.instances[request.InstanceID]
-	glog.Infof("last operation request on instance", request)
+	glog.V(4).Infof("last operation request on instance", request)
 
 	// TODO:Bug in OpenShift OperationKey is always passed as nil.
-	if request.OperationKey == nil {
+	if request.OperationKey == nil && &serviceInstance.OperationKey != nil {
 		request.OperationKey = &serviceInstance.OperationKey
 	}
 
-	if *request.OperationKey == osb.OperationKey("provision") {
-		glog.Infof("Service has been requested to provision", request.InstanceID)
+	if request.OperationKey != nil && *request.OperationKey == serviceInstance.OperationKey {
 		response := osb.LastOperationResponse{}
-		response.State = serviceInstance.State
+		response.State = serviceInstance.inProgressOperations[*request.OperationKey]
 		glog.Infof("LastOperation response", response)
-		return &response, nil
+		return &response, serviceInstance.lastError
 	}
+
 	return nil, nil
 }
 
-func createService(serviceInstance *dbServiceInstance) {
-	glog.Infof("starting to create a service for instance", serviceInstance.ID)
-	serviceInstance.Lock()
-	defer serviceInstance.Unlock()
-
-	serviceInstance.State = osb.StateInProgress
-	ok, err := createExternalService(*serviceInstance)
-	if !ok {
-		serviceInstance.State = osb.StateFailed
-		glog.Infof("failed to create external service", err)
-	} else {
-		// modify the status of the instance
-		serviceInstance.State = osb.StateSucceeded
-		glog.Infof("done creating a service for instance", serviceInstance.ID)
-	}
-}
-
 func (b *BusinessLogic) Bind(request *osb.BindRequest, c *broker.RequestContext) (*osb.BindResponse, error) {
-	// Your bind business logic goes here
-
-	// example implementation:
 	b.Lock()
 	defer b.Unlock()
 
-	instance, ok := b.instances[request.InstanceID]
+	serviceInstance, ok := b.instances[request.InstanceID]
+	serviceInstance.lastError = nil
 	if !ok {
 		return nil, osb.HTTPStatusCodeError{
 			StatusCode: http.StatusNotFound,
 		}
 	}
+	operation := osb.OperationKey(request.BindingID)
+	serviceInstance.OperationKey = operation
+	credentials := createBindingParameters(*serviceInstance, request.Parameters)
+	credentials["source-name"] = i2s(serviceInstance.Parameters["source-name"])
+	serviceInstance.inProgressOperations[operation] = osb.StateInProgress
 
-	creds := createBindingParameters(*instance, request.Parameters)
 	response := osb.BindResponse{
-		Credentials: creds,
+		Credentials: credentials,
 	}
 
-	// asynchronously create PodPreset
-	go createPodPreset(*instance, creds)
+	// asynchronously create PodPreset and set the status once the async operation is done
+	after := func(opKey osb.OperationKey, err error) {
+		if err != nil {
+			fmt.Println("failed to create the PodPreset for binding " + request.BindingID)
+			serviceInstance.inProgressOperations[opKey] = osb.StateFailed
+		}
+		serviceInstance.inProgressOperations[opKey] = osb.StateSucceeded
+	}
+	go podPresetAction(*serviceInstance, request.BindingID, operation, buildPodPreset, after)
 
 	if request.AcceptsIncomplete {
 		response.Async = b.async
 	}
-
+	response.OperationKey = &operation
 	return &response, nil
 }
 
 func (b *BusinessLogic) Unbind(request *osb.UnbindRequest, c *broker.RequestContext) (*osb.UnbindResponse, error) {
-	// Your unbind business logic goes here
-	return &osb.UnbindResponse{}, nil
+	response := osb.UnbindResponse{}
+	operation := osb.OperationKey(request.BindingID)
+	serviceInstance, ok := b.instances[request.InstanceID]
+	if !ok {
+		fmt.Println("service instance not found to unbind")
+		return &response, nil
+	}
+
+	serviceInstance.OperationKey = operation
+	serviceInstance.inProgressOperations[operation] = osb.StateInProgress
+	response.Async = request.AcceptsIncomplete
+	serviceInstance.OperationKey = operation
+
+	// asynchronously remove PodPreset
+	after := func(opKey osb.OperationKey, err error) {
+		if err != nil {
+			fmt.Println("failed to create the PodPreset for binding " + request.BindingID)
+			serviceInstance.inProgressOperations[opKey] = osb.StateFailed
+		}
+		serviceInstance.inProgressOperations[opKey] = osb.StateSucceeded
+	}
+	go podPresetAction(*serviceInstance, request.BindingID, operation, removePodPreset, after)
+
+	return &response, nil
 }
 
 func (b *BusinessLogic) Update(request *osb.UpdateInstanceRequest, c *broker.RequestContext) (*osb.UpdateInstanceResponse, error) {
@@ -200,10 +237,11 @@ func (b *BusinessLogic) ValidateBrokerAPIVersion(version string) error {
 
 // exampleInstance is intended as an example of a type that holds information about a service instance
 type dbServiceInstance struct {
-	ID           string
-	Parameters   map[string]interface{}
-	State        osb.LastOperationState
+	ID                   string
+	Parameters           map[string]interface{}
+	inProgressOperations map[osb.OperationKey]osb.LastOperationState
 	sync.RWMutex
 	PlanID       string
 	OperationKey osb.OperationKey
+	lastError    error
 }
