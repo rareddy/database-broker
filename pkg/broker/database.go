@@ -7,9 +7,8 @@ import (
 )
 
 type datasource struct {
-	Name              string
-	SourceName        string
-	Parameters map[string]interface{}
+	Name        string
+	Parameters  map[string]interface{}
 }
 
 type externaldatasource interface {
@@ -18,10 +17,10 @@ type externaldatasource interface {
 }
 
 type configurable interface {
-	springboot(multiSource bool) map[string]interface{}
-	wildflyswarm(multiSource bool) map[string]interface{}
-	nodejs(multiSource bool) map[string]interface{}
-	other(multiSource bool) map[string]interface{}
+	springboot(bindAlias string, multiSource bool) map[string]interface{}
+	wildflyswarm(bindAlias string, multiSource bool) map[string]interface{}
+	nodejs(bindAlias string, multiSource bool) map[string]interface{}
+	other(bindAlias string, multiSource bool) map[string]interface{}
 }
 
 func catalog() ([]osb.Service, error) {
@@ -39,7 +38,7 @@ func catalog() ([]osb.Service, error) {
 	return response.Services, nil
 }
 
-func newDataSource(serviceInstance dbServiceInstance, bindingParameters map[string]interface{}) configurable {
+func newDataSource(serviceInstance DataSourceInstance, bindingParameters map[string]interface{}) configurable {
 	services, err := catalog()
 	if err != nil {
 		// we should never get here.
@@ -52,7 +51,6 @@ func newDataSource(serviceInstance dbServiceInstance, bindingParameters map[stri
 			if services[i].Plans[j].ID == id {
 				ds := datasource{}
 				ds.Name = services[i].Name
-				ds.SourceName = i2s(serviceInstance.Parameters["source-name"])
 				ds.Parameters = merge(serviceInstance.Parameters, bindingParameters)
 				// TODO: need to figure out if there is a way to reflectively do this?
 				if services[i].Plans[j].Name == "mysql" {
@@ -81,13 +79,13 @@ func merge(properties ...map[string]interface{}) map[string]interface{} {
 	return creds
 }
 
-func wfs(sourceName string, key string) string {
-	return "swarm.datasources.data-sources."+sourceName+"."+key
+func wfs(bindAlias string, key string) string {
+	return "swarm.datasources.data-sources."+ bindAlias +"."+key
 }
 
-func sb(sourceName string, key string, multiSource bool) string {
+func sb(bindAlias string, key string, multiSource bool) string {
 	if multiSource {
-		return "spring.datasource." + sourceName + "." + key
+		return "spring.datasource." + bindAlias + "." + key
 	}
 	return "spring.datasource." + key
 }

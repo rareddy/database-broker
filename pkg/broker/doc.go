@@ -3,8 +3,8 @@
 //
 // - The Options type, which holds options for the broker
 // - The AddFlags function, which adds CLI flags for an Options
-// - The methods of the BusinessLogic type, which implements the broker's
+// - The methods of the DataSourceBroker type, which implements the broker's
 //   business logic
-// - The NewBusinessLogic function, which creates a BusinessLogic from the
+// - The NewDataSourceBroker function, which creates a DataSourceBroker from the
 //   Options the program is run with
 package broker // import "github.com/teiid/database-broker/pkg/broker"

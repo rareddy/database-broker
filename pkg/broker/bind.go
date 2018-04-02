@@ -11,38 +11,39 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
 )
 
-func createBindingParameters(serviceInstance dbServiceInstance,
+func createBindingParameters(serviceInstance DataSourceInstance,
 	bindingParameters map[string]interface{}) map[string]interface{} {
 
 	ds := newDataSource(serviceInstance, bindingParameters)
 	appType := i2s(bindingParameters["application-type"])
 	multiSource, _ := strconv.ParseBool(i2s(bindingParameters["multi-source-pod"]))
+	bindAlias := i2s(bindingParameters["binding-alias"])
 
 	switch appType {
 	case "spring-boot":
-		return ds.springboot(multiSource)
+		return ds.springboot(bindAlias, multiSource)
 	case "wildfly-swarm":
-		return ds.wildflyswarm(multiSource)
+		return ds.wildflyswarm(bindAlias, multiSource)
 	case "nodejs":
-		return ds.nodejs(multiSource)
+		return ds.nodejs(bindAlias, multiSource)
 	case "other":
-		return ds.other(multiSource)
+		return ds.other(bindAlias, multiSource)
 	}
-	return ds.other(multiSource)
+	return ds.other(bindAlias, multiSource)
 }
 
-func podPresetAction(serviceInstance dbServiceInstance, name string, opKey osb.OperationKey,
-	fn func(serviceInstance dbServiceInstance, appType string) error, after func(osb.OperationKey, error)) {
+func podPresetAction(bindingAlias string, namespace string, name string, opKey osb.OperationKey,
+	fn func(string, string, string) error, after func(osb.OperationKey, error)) {
 	// this is hack, really should be driven by some kind of event
 	// I have found no such unless we can watch the service bindings
 	// come through.
 	var err error
-	execute := fn(serviceInstance, name)
+	execute := fn(bindingAlias, namespace, name)
 	ticker := time.NewTicker(5 * time.Second)
 	go func() {
 		for t := range ticker.C {
@@ -60,7 +61,7 @@ func podPresetAction(serviceInstance dbServiceInstance, name string, opKey osb.O
 	after(opKey, err)
 }
 
-func buildPodPreset(serviceInstance dbServiceInstance, podPresetName string) error {
+func buildPodPreset(bindAlias string, namespace string, bindName string) error {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return err
@@ -72,39 +73,34 @@ func buildPodPreset(serviceInstance dbServiceInstance, podPresetName string) err
 		return err
 	}
 
-	sourceName := i2s(serviceInstance.Parameters["source-name"])
-	namespace := i2s(serviceInstance.Parameters["namespace"])
-
 	// lookthrough all the secrets and find the secret with source name property
 	typeMetadata := metav1.TypeMeta{Kind: "Secret", APIVersion: "v1"}
 	secretList, err := clientset.CoreV1().Secrets(namespace).List(metav1.ListOptions{TypeMeta: typeMetadata})
 	if err != nil {
-		fmt.Println("Failed to find the secret with source-name field" + i2s(err))
+		fmt.Println("Failed to find the secret with binding-alias field" + i2s(err))
 		return err
 	}
 	presetCreated := false
 	for i := range secretList.Items {
-		sn, ok := secretList.Items[i].Data["source-name"]
+		sn, ok := secretList.Items[i].Data["binding-alias"]
 		if !ok {
 			continue
 		}
 		srcName := string(sn)
-		if srcName == sourceName {
+		if srcName == bindAlias {
 			properties := secretList.Items[i].Data
-
-			fmt.Println("Properties in selected secret" + i2s(properties))
 
 			// create PodPreset
 			labels := map[string]string{}
-			labels["role"] = sourceName
+			labels["role"] = bindAlias
 
 			pp := v1alpha1.PodPreset{}
-			pp.ObjectMeta.Name = podPresetName
+			pp.ObjectMeta.Name = bindName
 			pp.Spec.Selector = metav1.LabelSelector{MatchLabels: labels}
 
 			envs := []v1.EnvVar{}
 			for key := range properties {
-				if key == "source-name" {
+				if key == "binding-alias" {
 					continue
 				}
 
@@ -136,7 +132,7 @@ func buildPodPreset(serviceInstance dbServiceInstance, podPresetName string) err
 	return errors.New("PodPreset is not created")
 }
 
-func removePodPreset(serviceInstance dbServiceInstance, podPresetName string) error {
+func removePodPreset(bindAlias string, namespace string, bindName string) error {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return err
@@ -147,13 +143,12 @@ func removePodPreset(serviceInstance dbServiceInstance, podPresetName string) er
 		return err
 	}
 
-	namespace := i2s(serviceInstance.Parameters["namespace"])
 	typeMeta := metav1.TypeMeta{Kind: "PodPreset", APIVersion: "v1"}
 
-	_, err = clientset.SettingsV1alpha1().PodPresets(namespace).Get(podPresetName, metav1.GetOptions{TypeMeta: typeMeta})
+	_, err = clientset.SettingsV1alpha1().PodPresets(namespace).Get(bindName, metav1.GetOptions{TypeMeta: typeMeta})
 	if err != nil {
-		return errors.New("failed to find the PodPreset with name " + podPresetName + " for removal.")
+		return errors.New("failed to find the PodPreset with name " + bindName + " for removal, with alias " + bindAlias)
 	}
-	err = clientset.SettingsV1alpha1().PodPresets(namespace).Delete(podPresetName, &metav1.DeleteOptions{TypeMeta: typeMeta})
+	err = clientset.SettingsV1alpha1().PodPresets(namespace).Delete(bindName, &metav1.DeleteOptions{TypeMeta: typeMeta})
 	return err
 }

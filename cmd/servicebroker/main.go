@@ -62,7 +62,7 @@ func runWithContext(ctx context.Context) error {
 
 	addr := ":" + strconv.Itoa(options.Port)
 
-	businessLogic, err := broker.NewBusinessLogic(options.Options)
+	businessLogic, err := broker.NewDataSourceBroker(options.Options)
 	if err != nil {
 		return err
 	}

@@ -10,33 +10,44 @@ import (
 	"github.com/pmorie/osb-broker-lib/pkg/broker"
 )
 
-// NewBusinessLogic is a hook that is called with the Options the program is run
-// with. NewBusinessLogic is the place where you will initialize your
-// BusinessLogic the parameters passed in.
-func NewBusinessLogic(o Options) (*BusinessLogic, error) {
-	// For example, if your BusinessLogic requires a parameter from the command
+// NewDataSourceBroker is a hook that is called with the Options the program is run
+// with. NewDataSourceBroker is the place where you will initialize your
+// DataSourceBroker the parameters passed in.
+func NewDataSourceBroker(o Options) (*DataSourceBroker, error) {
+	// For example, if your DataSourceBroker requires a parameter from the command
 	// line, you would unpack it from the Options and set it on the
-	// BusinessLogic here.
-	return &BusinessLogic{
+	// DataSourceBroker here.
+	return &DataSourceBroker{
 		async:     o.Async,
-		instances: make(map[string]*dbServiceInstance, 10),
+		instances: make(map[string]*DataSourceInstance, 10),
 	}, nil
 }
 
-// BusinessLogic provides an implementation of the broker.BusinessLogic
+// DataSourceBroker provides an implementation of the broker.DataSourceBroker
 // interface.
-type BusinessLogic struct {
+type DataSourceBroker struct {
 	// Indicates if the broker should handle the requests asynchronously.
 	async bool
 	// Synchronize go routines.
 	sync.RWMutex
 	// Add fields here! These fields are provided purely as an example
-	instances map[string]*dbServiceInstance
+	instances map[string]*DataSourceInstance
 }
 
-var _ broker.Interface = &BusinessLogic{}
+type DataSourceInstance struct {
+	ID                   string
+	PlanID               string
+	Parameters           map[string]interface{}
+	inProgressOperations map[osb.OperationKey]osb.LastOperationState
+	bindings             map[string]string
+	namespace            string
+	OperationKey         osb.OperationKey
+	lastError            error
+}
 
-func (b *BusinessLogic) GetCatalog(c *broker.RequestContext) (*osb.CatalogResponse, error) {
+var _ broker.Interface = &DataSourceBroker{}
+
+func (b *DataSourceBroker) GetCatalog(c *broker.RequestContext) (*osb.CatalogResponse, error) {
 	response := &osb.CatalogResponse{}
 
 	services, err := catalog()
@@ -49,7 +60,7 @@ func (b *BusinessLogic) GetCatalog(c *broker.RequestContext) (*osb.CatalogRespon
 	return response, nil
 }
 
-func (b *BusinessLogic) Provision(request *osb.ProvisionRequest, c *broker.RequestContext) (*osb.ProvisionResponse, error) {
+func (b *DataSourceBroker) Provision(request *osb.ProvisionRequest, c *broker.RequestContext) (*osb.ProvisionResponse, error) {
 
 	b.Lock()
 	defer b.Unlock()
@@ -70,11 +81,13 @@ func (b *BusinessLogic) Provision(request *osb.ProvisionRequest, c *broker.Reque
 	}
 
 	glog.Infof("received provision request for ", request.InstanceID)
+	namespace := i2s(request.Parameters["namespace"])
 
 	response := osb.ProvisionResponse{}
 	operation := osb.OperationKey("provision")
-	serviceInstance := dbServiceInstance{ID: request.InstanceID, Parameters: request.Parameters, PlanID: request.PlanID,
-		OperationKey: operation, inProgressOperations:map[osb.OperationKey]osb.LastOperationState{}}
+	serviceInstance := DataSourceInstance{ID: request.InstanceID, Parameters: request.Parameters, PlanID: request.PlanID,
+		OperationKey: operation, inProgressOperations: map[osb.OperationKey]osb.LastOperationState{},
+		namespace: namespace, bindings:map[string]string{}}
 	serviceInstance.inProgressOperations[operation] = osb.StateInProgress
 	b.instances[request.InstanceID] = &serviceInstance
 
@@ -97,7 +110,7 @@ func (b *BusinessLogic) Provision(request *osb.ProvisionRequest, c *broker.Reque
 	return &response, nil
 }
 
-func (b *BusinessLogic) Deprovision(request *osb.DeprovisionRequest, c *broker.RequestContext) (*osb.DeprovisionResponse, error) {
+func (b *DataSourceBroker) Deprovision(request *osb.DeprovisionRequest, c *broker.RequestContext) (*osb.DeprovisionResponse, error) {
 
 	// only accept async
 	if !request.AcceptsIncomplete {
@@ -135,7 +148,7 @@ func (b *BusinessLogic) Deprovision(request *osb.DeprovisionRequest, c *broker.R
 	return &response, nil
 }
 
-func (b *BusinessLogic) LastOperation(request *osb.LastOperationRequest, c *broker.RequestContext) (*osb.LastOperationResponse, error) {
+func (b *DataSourceBroker) LastOperation(request *osb.LastOperationRequest, c *broker.RequestContext) (*osb.LastOperationResponse, error) {
 	serviceInstance := b.instances[request.InstanceID]
 	glog.V(4).Infof("last operation request on instance", request)
 
@@ -154,7 +167,7 @@ func (b *BusinessLogic) LastOperation(request *osb.LastOperationRequest, c *brok
 	return nil, nil
 }
 
-func (b *BusinessLogic) Bind(request *osb.BindRequest, c *broker.RequestContext) (*osb.BindResponse, error) {
+func (b *DataSourceBroker) Bind(request *osb.BindRequest, c *broker.RequestContext) (*osb.BindResponse, error) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -168,8 +181,13 @@ func (b *BusinessLogic) Bind(request *osb.BindRequest, c *broker.RequestContext)
 	operation := osb.OperationKey(request.BindingID)
 	serviceInstance.OperationKey = operation
 	credentials := createBindingParameters(*serviceInstance, request.Parameters)
-	credentials["source-name"] = i2s(serviceInstance.Parameters["source-name"])
+
+	bindingAlias := i2s(request.Parameters["binding-alias"])
+	namespace := i2s(serviceInstance.Parameters["namespace"])
+
+	credentials["binding-alias"] = bindingAlias
 	serviceInstance.inProgressOperations[operation] = osb.StateInProgress
+	serviceInstance.bindings[request.BindingID] = bindingAlias
 
 	response := osb.BindResponse{
 		Credentials: credentials,
@@ -183,7 +201,7 @@ func (b *BusinessLogic) Bind(request *osb.BindRequest, c *broker.RequestContext)
 		}
 		serviceInstance.inProgressOperations[opKey] = osb.StateSucceeded
 	}
-	go podPresetAction(*serviceInstance, request.BindingID, operation, buildPodPreset, after)
+	go podPresetAction(bindingAlias, namespace, request.BindingID, operation, buildPodPreset, after)
 
 	if request.AcceptsIncomplete {
 		response.Async = b.async
@@ -192,7 +210,7 @@ func (b *BusinessLogic) Bind(request *osb.BindRequest, c *broker.RequestContext)
 	return &response, nil
 }
 
-func (b *BusinessLogic) Unbind(request *osb.UnbindRequest, c *broker.RequestContext) (*osb.UnbindResponse, error) {
+func (b *DataSourceBroker) Unbind(request *osb.UnbindRequest, c *broker.RequestContext) (*osb.UnbindResponse, error) {
 	response := osb.UnbindResponse{}
 	operation := osb.OperationKey(request.BindingID)
 	serviceInstance, ok := b.instances[request.InstanceID]
@@ -213,13 +231,14 @@ func (b *BusinessLogic) Unbind(request *osb.UnbindRequest, c *broker.RequestCont
 			serviceInstance.inProgressOperations[opKey] = osb.StateFailed
 		}
 		serviceInstance.inProgressOperations[opKey] = osb.StateSucceeded
+		delete(serviceInstance.bindings, request.BindingID)
 	}
-	go podPresetAction(*serviceInstance, request.BindingID, operation, removePodPreset, after)
+	go podPresetAction(serviceInstance.bindings[request.BindingID], serviceInstance.namespace, request.BindingID, operation, removePodPreset, after)
 
 	return &response, nil
 }
 
-func (b *BusinessLogic) Update(request *osb.UpdateInstanceRequest, c *broker.RequestContext) (*osb.UpdateInstanceResponse, error) {
+func (b *DataSourceBroker) Update(request *osb.UpdateInstanceRequest, c *broker.RequestContext) (*osb.UpdateInstanceResponse, error) {
 	// Your logic for updating a service goes here.
 	response := osb.UpdateInstanceResponse{}
 	if request.AcceptsIncomplete {
@@ -229,19 +248,6 @@ func (b *BusinessLogic) Update(request *osb.UpdateInstanceRequest, c *broker.Req
 	return &response, nil
 }
 
-func (b *BusinessLogic) ValidateBrokerAPIVersion(version string) error {
+func (b *DataSourceBroker) ValidateBrokerAPIVersion(version string) error {
 	return nil
-}
-
-// example types
-
-// exampleInstance is intended as an example of a type that holds information about a service instance
-type dbServiceInstance struct {
-	ID                   string
-	Parameters           map[string]interface{}
-	inProgressOperations map[osb.OperationKey]osb.LastOperationState
-	sync.RWMutex
-	PlanID       string
-	OperationKey osb.OperationKey
-	lastError    error
 }

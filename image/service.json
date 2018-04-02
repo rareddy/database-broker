@@ -34,9 +34,9 @@
                   "$schema": "http://json-schema.org/draft-04/schema#",
                   "type": "object",
                   "properties": {
-                    "source-name": {
-                      "title": "Service Identification Name ",
-                      "description": "Your own identifer name for this Service, Ex: production",
+                    "service-name": {
+                      "title": "Service Name",
+                      "description": "Your own identifier name for this Service, Ex: production",
                       "type": "string",
                       "default": "devorcl",
                       "pattern": "[a-z0-9_]",
@@ -79,6 +79,13 @@
                   "$schema": "http://json-schema.org/draft-04/schema#",
                   "type": "object",
                   "properties": {
+                    "binding-alias": {
+                      "title": "Binding Alias Name",
+                      "description": "user supplied name to uniquely identify credentials of this service binding. ex:production-alice",
+                      "type": "string",
+                      "pattern": "[a-z0-9]",
+                      "required": "true"
+                    },
                     "username": {
                       "title": "User Name",
                       "description": "User Name to use to connect to Database",
@@ -131,9 +138,9 @@
                   "$schema": "http://json-schema.org/draft-04/schema#",
                   "type": "object",
                   "properties": {
-                    "source-name": {
-                      "title": "Service Identification Name ",
-                      "description": "Your own identifer name for this Service, Ex: production",
+                    "service-name": {
+                      "title": "Service Name ",
+                      "description": "Your own identifier name for this Service, Ex: production",
                       "type": "string",
                       "default": "devsqlserver",
                       "pattern": "[a-z0-9_]",
@@ -176,6 +183,13 @@
                   "$schema": "http://json-schema.org/draft-04/schema#",
                   "type": "object",
                   "properties": {
+                    "binding-alias": {
+                      "title": "Binding Alias Name",
+                      "description": "user supplied name to uniquely identify credentials of this service binding. ex:production-alice",
+                      "type": "string",
+                      "pattern": "[a-z0-9]",
+                      "required": "true"
+                    },
                     "username": {
                       "title": "User Name",
                       "description": "User Name to use to connect to Database",
@@ -228,9 +242,9 @@
                   "$schema": "http://json-schema.org/draft-04/schema#",
                   "type": "object",
                   "properties": {
-                    "source-name": {
-                      "title": "Service Identification Name ",
-                      "description": "Your own identifer name for this Service, Ex: production",
+                    "service-name": {
+                      "title": "Service Name ",
+                      "description": "Your own identifier name for this Service, Ex: production",
                       "type": "string",
                       "default": "devmysql",
                       "pattern": "[a-z0-9_]",
@@ -284,6 +298,13 @@
                   "$schema": "http://json-schema.org/draft-04/schema#",
                   "type": "object",
                   "properties": {
+                    "binding-alias": {
+                      "title": "Binding Alias Name",
+                      "description": "user supplied name to uniquely identify credentials of this service binding. ex:production-alice",
+                      "type": "string",
+                      "pattern": "[a-z0-9]",
+                      "required": "true"
+                    },
                     "username": {
                       "title": "User Name",
                       "description": "User Name to use to connect to Database",
@@ -336,9 +357,9 @@
                   "$schema": "http://json-schema.org/draft-04/schema#",
                   "type": "object",
                   "properties": {
-                    "source-name": {
-                      "title": "Service Identification Name ",
-                      "description": "Your own identifer name for this Service, Ex: production",
+                    "service-name": {
+                      "title": "Service Name ",
+                      "description": "Your own identifier name for this Service, Ex: production",
                       "type": "string",
                       "default": "devpostgres",
                       "pattern": "[a-z0-9_]",
@@ -349,7 +370,7 @@
                       "description": "Namespace where the Service proxy is being created (same as project name)",
                       "type": "string",
                       "required": "true",
-                      "default": "${metadata.namespace}"
+                      "default": "myproject"
                     },
                     "host": {
                       "title": "Database Host Name",
@@ -392,11 +413,19 @@
                   "$schema": "http://json-schema.org/draft-04/schema#",
                   "type": "object",
                   "properties": {
+                    "binding-alias": {
+                      "title": "Binding Alias Name",
+                      "description": "user supplied name to uniquely identify credentials of this service binding. ex:production-alice",
+                      "type": "string",
+                      "pattern": "[a-z0-9]",
+                      "required": "true"
+                    },
                     "username": {
                       "title": "User Name",
                       "description": "User Name to use to connect to Database",
                       "type": "string",
-                      "required": "true"
+                      "required": "true",
+                      "default": "postgres"
                     },
                     "password": {
                       "title": "Password",

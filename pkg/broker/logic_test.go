@@ -9,7 +9,7 @@ import (
 
 func TestJSON(t *testing.T) {
 	var request broker.RequestContext
-	var logic BusinessLogic
+	var logic DataSourceBroker
 	response, err := logic.GetCatalog(&request)
 	if err != nil {
 		fmt.Println(err)

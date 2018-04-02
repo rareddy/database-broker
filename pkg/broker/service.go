@@ -14,19 +14,17 @@ import (
 	"fmt"
 )
 
-func serviceAction(serviceInstance dbServiceInstance, opKey osb.OperationKey,
-	task func (serviceInstance dbServiceInstance) error,
+func serviceAction(serviceInstance DataSourceInstance, opKey osb.OperationKey,
+	task func (serviceInstance DataSourceInstance) error,
 	after func(osb.OperationKey, error)) {
 
 	glog.Infof("starting to create a service for instance", serviceInstance.ID)
-	serviceInstance.Lock()
-	defer serviceInstance.Unlock()
 
 	err := task(serviceInstance)
 	after(opKey, err)
 }
 
-func createExternalService(serviceInstance dbServiceInstance) error {
+func createExternalService(serviceInstance DataSourceInstance) error {
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -39,7 +37,7 @@ func createExternalService(serviceInstance dbServiceInstance) error {
 	}
 
 	db := newDataSource(serviceInstance, nil)
-	serviceName := i2s(serviceInstance.Parameters["source-name"])
+	serviceName := i2s(serviceInstance.Parameters["service-name"])
 	namespace := i2s(serviceInstance.Parameters["namespace"])
 	host := i2s(serviceInstance.Parameters["host"])
 	portInt64, err := strconv.ParseInt(i2s(serviceInstance.Parameters["port"]), 10, 32)
@@ -107,7 +105,7 @@ func buildEndpoint(serviceName string, dbType string, dbHost string, dbPort int3
 	return endpoint
 }
 
-func removeExternalService(serviceInstance dbServiceInstance) (error) {
+func removeExternalService(serviceInstance DataSourceInstance) (error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return err
@@ -118,7 +116,7 @@ func removeExternalService(serviceInstance dbServiceInstance) (error) {
 		return err
 	}
 
-	serviceName := i2s(serviceInstance.Parameters["source-name"])
+	serviceName := i2s(serviceInstance.Parameters["service-name"])
 	namespace := i2s(serviceInstance.Parameters["namespace"])
 	host := i2s(serviceInstance.Parameters["host"])
 
