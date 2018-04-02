@@ -16,17 +16,17 @@ func (ds SqlServer) name() string {
 }
 
 // support configurable interface
-func (ds SqlServer) springboot() map[string]interface{} {
+func (ds SqlServer) springboot(multiSource bool) map[string]interface{} {
 	props := make(map[string]interface{})
-	props[sb(ds.SourceName, "driver-class-name")] = "net.sourceforge.jtds.jdbc.Driver"
-	props[sb(ds.SourceName, "url")] = "jdbc:jtds:sqlserver://"+ds.SourceName+":1433/"+i2s(ds.Parameters["database-name"])
-	props[sb(ds.SourceName, "username")] = i2s(ds.Parameters["username"])
-	props[sb(ds.SourceName, "password")] = i2s(ds.Parameters["password"])
-	props[sb(ds.SourceName, "validationQuery")] = i2s(ds.Parameters["ping-query"])
+	props[sb(ds.SourceName, "driver-class-name", multiSource)] = "net.sourceforge.jtds.jdbc.Driver"
+	props[sb(ds.SourceName, "url", multiSource)] = "jdbc:jtds:sqlserver://"+ds.SourceName+":1433/"+i2s(ds.Parameters["database-name"])
+	props[sb(ds.SourceName, "username", multiSource)] = i2s(ds.Parameters["username"])
+	props[sb(ds.SourceName, "password", multiSource)] = i2s(ds.Parameters["password"])
+	props[sb(ds.SourceName, "validationQuery", multiSource)] = i2s(ds.Parameters["ping-query"])
 	return props
 }
 
-func (ds SqlServer) wildflyswarm() map[string]interface{} {
+func (ds SqlServer) wildflyswarm(multiSource bool) map[string]interface{} {
 	props := make(map[string]interface{})
 	props[wfs(ds.SourceName, "driver-name")] = "sqlserver"
 	props[wfs(ds.SourceName, "jndi-name")] = "java:datasources/"+ds.SourceName
@@ -37,12 +37,12 @@ func (ds SqlServer) wildflyswarm() map[string]interface{} {
 	return props
 }
 
-func (ds SqlServer) nodejs() map[string]interface{} {
+func (ds SqlServer) nodejs(multiSource bool) map[string]interface{} {
 	// TODO: need to figure out what is it required in Node.JS
 	return ds.Parameters
 }
 
-func (ds SqlServer) other() map[string]interface{} {
+func (ds SqlServer) other(multiSource bool) map[string]interface{} {
 	// return with no modification
 	return ds.Parameters
 }

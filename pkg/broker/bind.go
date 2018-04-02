@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 	"strings"
 	"time"
+	"strconv"
 )
 
 func createBindingParameters(serviceInstance dbServiceInstance,
@@ -20,18 +21,19 @@ func createBindingParameters(serviceInstance dbServiceInstance,
 
 	ds := newDataSource(serviceInstance, bindingParameters)
 	appType := i2s(bindingParameters["application-type"])
+	multiSource, _ := strconv.ParseBool(i2s(bindingParameters["multi-source-pod"]))
 
 	switch appType {
 	case "spring-boot":
-		return ds.springboot()
+		return ds.springboot(multiSource)
 	case "wildfly-swarm":
-		return ds.wildflyswarm()
+		return ds.wildflyswarm(multiSource)
 	case "nodejs":
-		return ds.nodejs()
+		return ds.nodejs(multiSource)
 	case "other":
-		return ds.other()
+		return ds.other(multiSource)
 	}
-	return ds.other()
+	return ds.other(multiSource)
 }
 
 func podPresetAction(serviceInstance dbServiceInstance, name string, opKey osb.OperationKey,

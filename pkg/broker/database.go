@@ -18,10 +18,10 @@ type externaldatasource interface {
 }
 
 type configurable interface {
-	springboot() map[string]interface{}
-	wildflyswarm() map[string]interface{}
-	nodejs() map[string]interface{}
-	other() map[string]interface{}
+	springboot(multiSource bool) map[string]interface{}
+	wildflyswarm(multiSource bool) map[string]interface{}
+	nodejs(multiSource bool) map[string]interface{}
+	other(multiSource bool) map[string]interface{}
 }
 
 func catalog() ([]osb.Service, error) {
@@ -85,8 +85,11 @@ func wfs(sourceName string, key string) string {
 	return "swarm.datasources.data-sources."+sourceName+"."+key
 }
 
-func sb(sourceName string, key string) string {
-	return "spring.datasource."+sourceName+"."+key
+func sb(sourceName string, key string, multiSource bool) string {
+	if multiSource {
+		return "spring.datasource." + sourceName + "." + key
+	}
+	return "spring.datasource." + key
 }
 
 func (ds datasource) springboot() map[string]interface{} {

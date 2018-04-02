@@ -90,6 +90,25 @@
                       "description": "Password to use to connect to Database",
                       "type": "string",
                       "required": "true"
+                    },
+                    "application-type": {
+                      "title": "Application Type",
+                      "description": "Type of Application this Database is used with",
+                      "type": "string",
+                      "enum": [
+                        "spring-boot",
+                        "wildfly-swarm",
+                        "nodejs",
+                        "other"
+                      ],
+                      "required": "true",
+                      "default": "spring-boot"
+                    },
+                    "multi-source-pod": {
+                      "title": "Multiple Sources in Application",
+                      "description": "Are there more one data source used in application? it true, see dashboard for more instructions",
+                      "type": "boolean",
+                      "required": "false"
                     }
                   }
                 }
@@ -168,6 +187,25 @@
                       "description": "Password to use to connect to Database",
                       "type": "string",
                       "required": "true"
+                    },
+                    "application-type": {
+                      "title": "Application Type",
+                      "description": "Type of Application this Database is used with",
+                      "type": "string",
+                      "enum": [
+                        "spring-boot",
+                        "wildfly-swarm",
+                        "nodejs",
+                        "other"
+                      ],
+                      "required": "true",
+                      "default": "spring-boot"
+                    },
+                    "multi-source-pod": {
+                      "title": "Multiple Sources in Application",
+                      "description": "Are there more one data source used in application? it true, see dashboard for more instructions",
+                      "type": "boolean",
+                      "required": "false"
                     }
                   }
                 }
@@ -270,6 +308,12 @@
                       ],
                       "required": "true",
                       "default": "spring-boot"
+                    },
+                    "multi-source-pod": {
+                      "title": "Multiple Sources in Application",
+                      "description": "Are there more one data source used in application? it true, see dashboard for more instructions",
+                      "type": "boolean",
+                      "required": "false"
                     }
                   }
                 }
@@ -372,6 +416,12 @@
                       ],
                       "required": "true",
                       "default": "spring-boot"
+                    },
+                    "multi-source-pod": {
+                      "title": "Multiple Sources in Application",
+                      "description": "Are there more one data source used in application? it true, see dashboard for more instructions",
+                      "type": "boolean",
+                      "required": "false"
                     }
                   }
                 }
