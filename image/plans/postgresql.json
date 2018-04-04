@@ -1,0 +1,116 @@
+{
+  "name": "postgresql",
+  "id": "bcadb529-f814-4a4b-af37-1b4cf54c93ba",
+  "description": "Make a connection to PostgreSQL Database on Enterprise Network",
+  "free": true,
+  "metadata": {
+    "displayName": "PostgreSQL"
+  },
+  "schemas": {
+    "service_instance": {
+      "create": {
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "type": "object",
+          "properties": {
+            "service-name": {
+              "title": "Service Name ",
+              "description": "Your own identifier name for this Service, Ex: production",
+              "type": "string",
+              "default": "devpostgres",
+              "pattern": "[a-z0-9_]",
+              "required": "true"
+            },
+            "namespace": {
+              "title": "Namespace",
+              "description": "Namespace where the Service proxy is being created (same as project name)",
+              "type": "string",
+              "required": "true",
+              "default": "myproject"
+            },
+            "host": {
+              "title": "Database Host Name",
+              "description": "Host Name of the database Server(must be reachable from cloud)",
+              "type": "string",
+              "required": "true"
+            },
+            "port": {
+              "title": "Database Port Number",
+              "description": "Port Number for the database server",
+              "type": "integer",
+              "default": 5432,
+              "required": "true"
+            },
+            "database-name": {
+              "title": "Database Name",
+              "description": "Name of the Database connect to",
+              "type": "string",
+              "default": "sampledb",
+              "required": "true"
+            },
+            "init-script": {
+              "title": "Database Init Script",
+              "description": "URL to the Database initialization script. (DDL, DML)",
+              "type": "string"
+            },
+            "ping-query": {
+              "title": "Database Ping Query in SQL",
+              "description": "SQL Query to Ping database to check if it is available",
+              "type": "string",
+              "default": "SELECT 1"
+            }
+          }
+        }
+      }
+    },
+    "service_binding": {
+      "create": {
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "type": "object",
+          "properties": {
+            "binding-alias": {
+              "title": "Binding Alias Name",
+              "description": "user supplied name to uniquely identify credentials of this service binding. ex:production-alice",
+              "type": "string",
+              "pattern": "[a-z0-9]",
+              "required": "true"
+            },
+            "username": {
+              "title": "User Name",
+              "description": "User Name to use to connect to Database",
+              "type": "string",
+              "required": "true",
+              "default": "postgres"
+            },
+            "password": {
+              "title": "Password",
+              "description": "Password to use to connect to Database",
+              "type": "string",
+              "required": "true"
+            },
+            "application-type": {
+              "title": "Application Type",
+              "description": "Type of Application this Database is used with",
+              "type": "string",
+              "enum": [
+                "spring-boot",
+                "wildfly-swarm",
+                "nodejs",
+                "other"
+              ],
+              "required": "true",
+              "default": "spring-boot"
+            },
+            "multi-source-pod": {
+              "title": "Multiple Sources in Application",
+              "description": "Are there more one data source used in application? it true, see dashboard for more instructions",
+              "type": "boolean",
+              "required": "false"
+            }
+          }
+        }
+      }
+    }
+  }
+}

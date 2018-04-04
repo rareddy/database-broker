@@ -1,5 +1,5 @@
 FROM busybox
 
-COPY service.json /opt/servicebroker/service.json
+COPY plans /opt/servicebroker/plans
 ADD servicebroker /opt/servicebroker/servicebroker
 CMD /opt/servicebroker/servicebroker --help

@@ -1,10 +1,5 @@
 package broker
 
-import (
-	"encoding/json"
-	osb "github.com/pmorie/go-open-service-broker-client/v2"
-	"io/ioutil"
-)
 
 type datasource struct {
 	Name        string
@@ -21,21 +16,6 @@ type configurable interface {
 	wildflyswarm(bindAlias string, multiSource bool) map[string]interface{}
 	nodejs(bindAlias string, multiSource bool) map[string]interface{}
 	other(bindAlias string, multiSource bool) map[string]interface{}
-}
-
-func catalog() ([]osb.Service, error) {
-	response := &osb.CatalogResponse{}
-
-	data, err := ioutil.ReadFile("/opt/servicebroker/service.json")
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal([]byte(data), &response)
-	if err != nil {
-		return nil, err
-	}
-	return response.Services, nil
 }
 
 func newDataSource(serviceInstance DataSourceInstance, bindingParameters map[string]interface{}) configurable {
