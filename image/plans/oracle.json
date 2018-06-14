@@ -41,12 +41,30 @@
               "default": 1521,
               "required": "true"
             },
+            "username": {
+              "title": "User Name",
+              "description": "User Name to use to connect to Database",
+              "type": "string",
+              "required": "true"
+            },
+            "password": {
+              "title": "Password",
+              "description": "Password to use to connect to Database",
+              "type": "string",
+              "required": "true"
+            },
             "database-name": {
               "title": "Database Name",
               "description": "Name of the Database connect to",
               "type": "string",
               "default": "sampledb",
               "required": "true"
+            },
+            "ping-query": {
+              "title": "Database Ping Query in SQL",
+              "description": "SQL Query to Ping database to check if it is available",
+              "type": "string",
+              "default": "SELECT 1"
             }
           }
         }
@@ -63,18 +81,6 @@
               "description": "user supplied name to uniquely identify credentials of this service binding. ex:production-alice",
               "type": "string",
               "pattern": "[a-z0-9]",
-              "required": "true"
-            },
-            "username": {
-              "title": "User Name",
-              "description": "User Name to use to connect to Database",
-              "type": "string",
-              "required": "true"
-            },
-            "password": {
-              "title": "Password",
-              "description": "Password to use to connect to Database",
-              "type": "string",
               "required": "true"
             },
             "application-type": {

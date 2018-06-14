@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	"github.com/pmorie/osb-broker-lib/pkg/broker"
+	"errors"
 )
 
 // NewDataSourceBroker is a hook that is called with the Options the program is run
@@ -151,6 +152,10 @@ func (b *DataSourceBroker) Deprovision(request *osb.DeprovisionRequest, c *broke
 func (b *DataSourceBroker) LastOperation(request *osb.LastOperationRequest, c *broker.RequestContext) (*osb.LastOperationResponse, error) {
 	serviceInstance := b.instances[request.InstanceID]
 	glog.V(4).Infof("last operation request on instance", request)
+
+	if serviceInstance == nil {
+		return nil, errors.New("Service "+request.InstanceID+" not found")
+	}
 
 	// TODO:Bug in OpenShift OperationKey is always passed as nil.
 	if request.OperationKey == nil && &serviceInstance.OperationKey != nil {

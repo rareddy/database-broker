@@ -53,6 +53,18 @@
               "description": "URL to the Database initialization script. (DDL, DML)",
               "type": "string"
             },
+            "username": {
+              "title": "User Name",
+              "description": "User Name to use to connect to Database",
+              "type": "string",
+              "required": "true"
+            },
+            "password": {
+              "title": "Password",
+              "description": "Password to use to connect to Database",
+              "type": "string",
+              "required": "true"
+            },
             "ping-query": {
               "title": "Database Ping Query in SQL",
               "description": "SQL Query to Ping database to check if it is available",
@@ -74,18 +86,6 @@
               "description": "user supplied name to uniquely identify credentials of this service binding. ex:production-alice",
               "type": "string",
               "pattern": "[a-z0-9]",
-              "required": "true"
-            },
-            "username": {
-              "title": "User Name",
-              "description": "User Name to use to connect to Database",
-              "type": "string",
-              "required": "true"
-            },
-            "password": {
-              "title": "Password",
-              "description": "Password to use to connect to Database",
-              "type": "string",
               "required": "true"
             },
             "application-type": {
